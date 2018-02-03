@@ -42,8 +42,7 @@ class TorrentInfo:
     def __init__(self, filename):
         self._files = list()
         with open(filename, mode="rb") as f:
-            tfile_data = f.read()
-            self._data = Decoder(tfile_data).parse()
+            self._data = Decoder(f.read()).parse()
             info = Encoder.encode(self._data[b"info"])
             self._info_hash = sha1(info)
             self._identify_files()
@@ -57,12 +56,10 @@ class TorrentInfo:
         self._filename = self._data[b'info'][b'name']
         if self.multi_file:
             self._files.extend(
-                (TFile.from_dict(x) for x in self._data[b'info'][b"files"])
-            )
+                (TFile.from_dict(x) for x in self._data[b'info'][b"files"]))
         else:
             self._files.append(
-                TFile([self._filename], self._data[b'info'][b'length'])
-            )
+                TFile([self._filename], self._data[b'info'][b'length']))
 
     def _take_announce(self):
         self._announce_idx = 0

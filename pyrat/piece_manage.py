@@ -85,20 +85,36 @@ class PiecesManager:
         self._missing_pieces = self._init_pieces()
         self._fds = self._init_fds() # file descriptors
         
-    def _init_fds(self):
-        fd = os.open(self._tinfo.filename,  os.O_RDWR | os.O_CREAT)
-        return [fd]
-        #TODO Rewrite to multifile mode
+    def _init_fds(self): # Initialize file descriprors (open files)
+        if not self._tinfo.multi_file:
+            fd = os.open(self._tinfo.filename,  os.O_RDWR | os.O_CREAT)
+            return [fd]
+        fds = list() #  File Descriptors
+        for tfile in self._tinfo.files:
+            fds.append(os.open(tfile.name,  os.O_RDWR | os.O_CREAT))
+        return fds
+
 
     def close(self):
         for fd in self._fds:
             os.close(fd)
 
     def _write(self, piece):   
-        pos = piece.index * self.torrent.piece_length
-        os.lseek(self._fds[0], pos, os.SEEK_SET)
-        os.write(self._fds[0], piece.data)
-        #TODO Rewrite to multifile mode
+        data = piece.data
+        piece_pos = piece.index * self.torrent.piece_length
+        if not self._tinfo.multi_file:
+            os.lseek(self._fds[0], piece_pos, os.SEEK_SET)
+            os.write(self._fds[0], data)
+            return None
+        for file_idx, tfile in enumerate(self._tinfo.files):
+            if tfile.length > piece_pos:
+                bytes_to_write = min(tfile.length - piece_pos, len(data))
+                os.lseek(self._fds[file_idx], piece_pos, os.SEEK_SET)
+                os.write(self._fds[file_idx], data[:bytes_to_write])
+                data = data[bytes_to_write:]
+                piece_pos += bytes_to_write
+            piece_pos -= tfile.length
+            if len(data) == 0: break
 
     def _init_pieces(self):
         pieces = []
